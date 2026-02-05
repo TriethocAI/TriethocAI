@@ -601,8 +601,29 @@
         }
 
         .scoreboard-player-status {
-            font-size: 0.8rem;
-            color: #a8a8a8;
+            font-size: 0.85rem;
+            color: #fbbf24;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .scoreboard-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .scoreboard-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22d3ee);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .scoreboard-item.finished .scoreboard-progress-fill {
+            background: linear-gradient(90deg, #ffd700, #4ade80);
         }
 
         .scoreboard-stats {
@@ -2144,20 +2165,28 @@
                     return (a.time_ms || Infinity) - (b.time_ms || Infinity);
                 });
 
+                const requiredCorrect = gameState.requiredCorrect || 10;
+
                 scoreboard.innerHTML = sorted.map((p, i) => {
                     const rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : 'normal'));
-                    const finished = p.correct >= 10;
+                    const correct = p.correct || 0;
+                    const finished = correct >= requiredCorrect;
                     const timeStr = p.time_ms ? formatTimeMs(p.time_ms) : '--:--';
+                    const progressText = finished ? '✅ Hoàn thành!' : `📝 Câu ${correct + 1}/${requiredCorrect}`;
+                    const progressPercent = Math.min(100, (correct / requiredCorrect) * 100);
                     
                     return `
                         <div class="scoreboard-item ${finished ? 'finished' : ''}">
                             <div class="scoreboard-rank ${rankClass}">${i + 1}</div>
                             <div class="scoreboard-player">
                                 <div class="scoreboard-player-name">${p.name}</div>
-                                <div class="scoreboard-player-status">${finished ? '✅ Hoàn thành' : '🎮 Đang chơi...'}</div>
+                                <div class="scoreboard-player-status">${progressText}</div>
+                                <div class="scoreboard-progress-bar">
+                                    <div class="scoreboard-progress-fill" style="width: ${progressPercent}%"></div>
+                                </div>
                             </div>
                             <div class="scoreboard-stats">
-                                <span class="stat-correct">✓ ${p.correct || 0}</span>
+                                <span class="stat-correct">✓ ${correct}</span>
                                 <span class="stat-wrong">✗ ${p.wrong || 0}</span>
                                 <span class="stat-time">${timeStr}</span>
                             </div>
@@ -2255,6 +2284,29 @@
 
                     if (data.room_status === 'finished') {
                         clearIntervals();
+                        gameState.gameEnded = true;
+                        
+                        // Gửi kết quả cuối cùng của người chơi trước khi hiện rankings
+                        if (!gameState.isHost) {
+                            const elapsedMs = Date.now() - gameState.startTime;
+                            try {
+                                await fetch(`${API_BASE}/api/competition/finish`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        room_code: gameState.roomCode,
+                                        player_name: gameState.playerName,
+                                        correct: gameState.correctCount,
+                                        wrong: gameState.wrongCount,
+                                        time_ms: elapsedMs
+                                    })
+                                });
+                            } catch (e) {
+                                console.error('Submit final result error:', e);
+                            }
+                        }
+                        
+                        showToast('🏁 Trận đấu đã kết thúc!', 'info');
                         showRankings();
                     }
                 } catch (error) {
@@ -2262,7 +2314,8 @@
                 }
             };
 
-            gameState.pollInterval = setInterval(check, 3000);
+            check(); // Kiểm tra ngay lập tức
+            gameState.pollInterval = setInterval(check, 2000); // Poll mỗi 2 giây
         }
 
         // ==================== CARDS ====================
