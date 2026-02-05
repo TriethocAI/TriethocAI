@@ -341,7 +341,7 @@
 					<div class="topbar">
 						<div style="min-width: 180px">
 							<label for="endpoint">Backend URL</label>
-							<input id="endpoint" type="text" value="http://127.0.0.1:5002/api/search" />
+							<input id="endpoint" type="text" value="https://silence-apps-clearance-managers.trycloudflare.com/api/search" />
 						</div>
 						<div style="min-width: 200px">
 							<label for="stream">Streaming</label>
@@ -565,25 +565,46 @@
 				}
 			});
 
-			// Intro animation - hide after 3 seconds
-			setTimeout(() => {
-				const introScreen = document.getElementById('introScreen');
-				const mainContent = document.getElementById('mainContent');
-				
-				introScreen.classList.add('hidden');
+			// Intro animation - chỉ hiển thị lần đầu hoặc sau 1 giờ không vào
+			const INTRO_EXPIRY = 60 * 60 * 1000; // 1 giờ (milliseconds)
+			const lastVisit = localStorage.getItem('lastVisitTime');
+			const now = Date.now();
+			const showIntro = !lastVisit || (now - parseInt(lastVisit)) > INTRO_EXPIRY;
+			
+			const introScreen = document.getElementById('introScreen');
+			const mainContent = document.getElementById('mainContent');
+			
+			if (showIntro) {
+				// Hiển thị intro
+				setTimeout(() => {
+					introScreen.classList.add('hidden');
+					mainContent.classList.add('visible');
+					
+					// Remove intro from DOM after transition
+					setTimeout(() => {
+						introScreen.remove();
+					}, 800);
+					
+					// greeting after intro
+					append(
+						"assistant",
+						"Xin chào! Mình là Triết học AI. Hãy đặt câu hỏi về Triết học Mác-Lênin nhé."
+					);
+				}, 3000);
+			} else {
+				// Bỏ qua intro, hiện luôn nội dung
+				introScreen.remove();
 				mainContent.classList.add('visible');
 				
-				// Remove intro from DOM after transition
-				setTimeout(() => {
-					introScreen.remove();
-				}, 800);
-				
-				// greeting after intro
+				// greeting ngay
 				append(
 					"assistant",
 					"Xin chào! Mình là Triết học AI. Hãy đặt câu hỏi về Triết học Mác-Lênin nhé."
 				);
-			}, 3000);
+			}
+			
+			// Lưu thời gian truy cập
+			localStorage.setItem('lastVisitTime', now.toString());
 		</script>
 	</body>
 </html>
